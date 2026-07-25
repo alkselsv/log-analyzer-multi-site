@@ -1,0 +1,15 @@
+[Unit]
+Description=Multi-site log analyzer watcher
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/app/log-analyzer-multi-site
+EnvironmentFile=/var/www/app/log-analyzer-multi-site/.env
+Environment=PATH=/root/.nvm/versions/node/v14.21.3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/var/www/app/log-analyzer-multi-site/.venv/bin/python site_watcher.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

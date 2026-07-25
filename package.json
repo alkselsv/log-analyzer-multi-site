@@ -1,0 +1,8 @@
+{
+  "name": "log-analyzer-zwilling-combined",
+  "private": true,
+  "description": "Combined mobile and desktop log analyzers",
+  "dependencies": {
+    "dotenv": "17.2.1"
+  }
+}
