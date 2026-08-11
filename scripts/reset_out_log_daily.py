@@ -8,22 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from out_log_daily import reset_out_log_for_today  # noqa: E402
-
-DEVICE_FIELDNAMES = ["date", "session_id", "probability", "ip", "user_agent"]
-COMBINED_FIELDNAMES = [
-    "date",
-    "device_type",
-    "session_id",
-    "probability",
-    "ip",
-    "user_agent",
-]
+from prediction.schema import COMBINED_OUT_FIELDNAMES, DEVICE_OUT_FIELDNAMES  # noqa: E402
 
 
 def fieldnames_for_path(out_path: Path):
     if "mobile" in out_path.parts or "desktop" in out_path.parts:
-        return DEVICE_FIELDNAMES
-    return COMBINED_FIELDNAMES
+        return DEVICE_OUT_FIELDNAMES
+    return COMBINED_OUT_FIELDNAMES
 
 
 def main(argv: list[str]) -> int:

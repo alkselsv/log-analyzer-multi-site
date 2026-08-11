@@ -85,4 +85,16 @@ def build_site_env(site: SiteConfig) -> Dict[str, str]:
     if site.desktop_models.source == "custom":
         env["DESKTOP_MODEL_SOURCE"] = "custom"
 
+    mobile_lgbm = site.mobile_models.buyer_lgbm
+    if mobile_lgbm is not None and mobile_lgbm.source != "missing":
+        env["MOBILE_BUYER_LGBM_PATH"] = str(mobile_lgbm.artifact)
+        env["MOBILE_TRANSFORMER_PATH"] = str(mobile_lgbm.transformer)
+        env["MOBILE_BUYER_LGBM_SOURCE"] = mobile_lgbm.source
+
+    desktop_lgbm = site.desktop_models.buyer_lgbm
+    if desktop_lgbm is not None and desktop_lgbm.source != "missing":
+        env["DESKTOP_BUYER_LGBM_PATH"] = str(desktop_lgbm.artifact)
+        env["DESKTOP_TRANSFORMER_PATH"] = str(desktop_lgbm.transformer)
+        env["DESKTOP_BUYER_LGBM_SOURCE"] = desktop_lgbm.source
+
     return env

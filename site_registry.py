@@ -11,6 +11,8 @@ from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from dotenv import load_dotenv
 
+from prediction.lgbm.paths import BuyerLgbmPaths, resolve_buyer_lgbm_paths
+
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
 
@@ -52,7 +54,7 @@ def is_site_allowed(site_id: str) -> bool:
 MOBILE_MODEL_FILES = (
     "order_umap_model.joblib",
     "order_cluster_centroid.json",
-    "minmax_scaler_mobile.pkl",
+    "minmax_scaler.pkl",
 )
 DESKTOP_MODEL_FILES = (
     "order_umap_model.joblib",
@@ -68,6 +70,7 @@ class DeviceModelPaths:
     centroid: Path
     scaler: Path
     source: str  # "custom" or "base"
+    buyer_lgbm: Optional[BuyerLgbmPaths] = None
 
 
 @dataclass
@@ -92,7 +95,7 @@ def _model_set_complete(model_dir: Path, filenames: Tuple[str, ...]) -> bool:
 
 
 def base_model_dir(device: str) -> Path:
-    return PROJECT_ROOT / device / "models"
+    return PROJECT_ROOT / "models" / device
 
 
 def resolve_device_models(
@@ -120,12 +123,18 @@ def resolve_device_models(
             f"и нет полного base в {base_dir}"
         )
 
+    buyer_lgbm = resolve_buyer_lgbm_paths(
+        project_root=PROJECT_ROOT,
+        site_dir=site_dir,
+        device=device,
+    )
     return DeviceModelPaths(
         model_dir=model_dir,
         umap=model_dir / "order_umap_model.joblib",
         centroid=model_dir / "order_cluster_centroid.json",
         scaler=model_dir / scaler_name,
         source=source,
+        buyer_lgbm=buyer_lgbm,
     )
 
 
@@ -145,7 +154,7 @@ def discover_sites() -> List[SiteConfig]:
         site_dir = SITES_DIR / site_id
         try:
             mobile = resolve_device_models(
-                site_dir, "mobile", MOBILE_MODEL_FILES, "minmax_scaler_mobile.pkl"
+                site_dir, "mobile", MOBILE_MODEL_FILES, "minmax_scaler.pkl"
             )
             desktop = resolve_device_models(
                 site_dir, "desktop", DESKTOP_MODEL_FILES, "minmax_scaler.pkl"

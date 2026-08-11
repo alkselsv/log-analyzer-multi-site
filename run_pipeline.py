@@ -10,21 +10,20 @@ from typing import Dict, List, Set, Tuple
 
 from dotenv import load_dotenv
 
+from out_log_daily import append_out_log, ensure_out_log_file
+from prediction.schema import (
+    COL_PROBABILITY_LGBM,
+    COL_PROBABILITY_UMAP,
+    COL_SESSION_ID,
+    COMBINED_OUT_FIELDNAMES,
+    COMBINED_PREDICT_FIELDNAMES,
+)
 
 ROOT = Path(__file__).resolve().parent
-MOBILE_DIR = ROOT / "mobile"
-DESKTOP_DIR = ROOT / "desktop"
+OUTPUTS_DIR = ROOT / "outputs"
+MOBILE_OUT_DIR = OUTPUTS_DIR / "mobile"
+DESKTOP_OUT_DIR = OUTPUTS_DIR / "desktop"
 
-from out_log_daily import append_out_log, ensure_out_log_file
-
-COMBINED_OUT_FIELDNAMES = [
-    "date",
-    "device_type",
-    "session_id",
-    "probability",
-    "ip",
-    "user_agent",
-]
 DEFAULT_SITE_ID = "1_466"
 DEFAULT_JSON_PATH = Path("/var/www/mlog/1_466.json")
 
@@ -87,37 +86,37 @@ class SitePaths:
         self.mobile_predict_results = Path(
             env.get(
                 "MOBILE_PREDICT_RESULTS",
-                str(MOBILE_DIR / "predict_results.csv"),
+                str(MOBILE_OUT_DIR / "predict_results.csv"),
             )
         )
         self.desktop_predict_results = Path(
             env.get(
                 "DESKTOP_PREDICT_RESULTS",
-                str(DESKTOP_DIR / "predict_results.csv"),
+                str(DESKTOP_OUT_DIR / "predict_results.csv"),
             )
         )
         self.mobile_out_log = Path(
             env.get(
                 "MOBILE_OUT_LOG_PATH",
-                str(MOBILE_DIR / f"{site_id}.out.log"),
+                str(MOBILE_OUT_DIR / f"{site_id}.out.log"),
             )
         )
         self.desktop_out_log = Path(
             env.get(
                 "DESKTOP_OUT_LOG_PATH",
-                str(DESKTOP_DIR / f"{site_id}.out.log"),
+                str(DESKTOP_OUT_DIR / f"{site_id}.out.log"),
             )
         )
         self.mobile_out_delta = Path(
             env.get(
                 "MOBILE_OUT_DELTA_FILE",
-                str(MOBILE_DIR / ".out_delta.csv"),
+                str(MOBILE_OUT_DIR / ".out_delta.csv"),
             )
         )
         self.desktop_out_delta = Path(
             env.get(
                 "DESKTOP_OUT_DELTA_FILE",
-                str(DESKTOP_DIR / ".out_delta.csv"),
+                str(DESKTOP_OUT_DIR / ".out_delta.csv"),
             )
         )
 
@@ -128,14 +127,14 @@ def require_directory(path: Path, label: str) -> None:
 
 
 def build_configs(site_paths: SitePaths) -> List[PipelineConfig]:
-    require_directory(MOBILE_DIR, "mobile-пайплайна")
-    require_directory(DESKTOP_DIR, "desktop-пайплайна")
+    MOBILE_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    DESKTOP_OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     return [
         PipelineConfig(
             device_type="mobile",
             working_directory=ROOT,
-            script_path=MOBILE_DIR / "run_pipeline.py",
+            script_path=ROOT / "pipeline" / "device_pipeline.py",
             predict_results_path=site_paths.mobile_predict_results,
             out_log_path=site_paths.mobile_out_log,
             out_delta_path=site_paths.mobile_out_delta,
@@ -157,7 +156,7 @@ def build_configs(site_paths: SitePaths) -> List[PipelineConfig]:
         PipelineConfig(
             device_type="desktop",
             working_directory=ROOT,
-            script_path=DESKTOP_DIR / "run_pipeline.py",
+            script_path=ROOT / "pipeline" / "device_pipeline.py",
             predict_results_path=site_paths.desktop_predict_results,
             out_log_path=site_paths.desktop_out_log,
             out_delta_path=site_paths.desktop_out_delta,
@@ -232,7 +231,13 @@ def run_single_pipeline(config: PipelineConfig, base_env: Dict[str, str]) -> Non
     env = base_env.copy()
     env.update(config.env_overrides)
     result = subprocess.run(
-        [sys.executable, str(config.script_path)],
+        [
+            sys.executable,
+            "-m",
+            "pipeline.device_pipeline",
+            "--device",
+            config.device_type,
+        ],
         cwd=config.working_directory,
         env=env,
         capture_output=True,
@@ -277,15 +282,18 @@ def merge_predict_results(
             rows.append(
                 {
                     "device_type": config.device_type,
-                    "session_id": str(row.get("session_id", "")),
-                    "probability": str(row.get("probability", "")),
+                    COL_SESSION_ID: str(row.get(COL_SESSION_ID, "")),
+                    COL_PROBABILITY_UMAP: str(
+                        row.get(COL_PROBABILITY_UMAP, row.get("probability", ""))
+                    ),
+                    COL_PROBABILITY_LGBM: str(row.get(COL_PROBABILITY_LGBM, "")),
                 }
             )
 
-    rows.sort(key=lambda item: (item["device_type"], item["session_id"]))
+    rows.sort(key=lambda item: (item["device_type"], item[COL_SESSION_ID]))
     write_csv(
         combined_predict_results,
-        ["device_type", "session_id", "probability"],
+        COMBINED_PREDICT_FIELDNAMES,
         rows,
     )
 
@@ -346,8 +354,11 @@ def merge_out_logs(
                 {
                     "date": str(row.get("date", "")),
                     "device_type": config.device_type,
-                    "session_id": str(row.get("session_id", "")),
-                    "probability": str(row.get("probability", "")),
+                    COL_SESSION_ID: str(row.get(COL_SESSION_ID, "")),
+                    COL_PROBABILITY_UMAP: str(
+                        row.get(COL_PROBABILITY_UMAP, row.get("probability", ""))
+                    ),
+                    COL_PROBABILITY_LGBM: str(row.get(COL_PROBABILITY_LGBM, "")),
                     "ip": str(row.get("ip", "")),
                     "user_agent": str(row.get("user_agent", "")),
                 }
