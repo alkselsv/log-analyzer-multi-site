@@ -1,8 +1,8 @@
 Базовые runtime-артефакты desktop:
 
-UMAP (обязательные):
-- `order_umap_model.joblib`
-- `order_cluster_centroid.json`
+UMAP bot-cluster (обязательные):
+- `bot_umap_model.joblib`
+- `bot_cluster_centroid.json`
 - `minmax_scaler.pkl`
 
 LightGBM buyer (опциональные):

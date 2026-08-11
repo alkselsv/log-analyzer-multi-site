@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 
 from out_log_daily import append_out_log, ensure_out_log_file
 from prediction.schema import (
+    COL_PROBABILITY_BOT_UMAP,
     COL_PROBABILITY_LGBM,
-    COL_PROBABILITY_UMAP,
     COL_SESSION_ID,
     COMBINED_OUT_FIELDNAMES,
     COMBINED_PREDICT_FIELDNAMES,
@@ -283,9 +283,7 @@ def merge_predict_results(
                 {
                     "device_type": config.device_type,
                     COL_SESSION_ID: str(row.get(COL_SESSION_ID, "")),
-                    COL_PROBABILITY_UMAP: str(
-                        row.get(COL_PROBABILITY_UMAP, row.get("probability", ""))
-                    ),
+                    COL_PROBABILITY_BOT_UMAP: str(row.get(COL_PROBABILITY_BOT_UMAP, "")),
                     COL_PROBABILITY_LGBM: str(row.get(COL_PROBABILITY_LGBM, "")),
                 }
             )
@@ -355,9 +353,7 @@ def merge_out_logs(
                     "date": str(row.get("date", "")),
                     "device_type": config.device_type,
                     COL_SESSION_ID: str(row.get(COL_SESSION_ID, "")),
-                    COL_PROBABILITY_UMAP: str(
-                        row.get(COL_PROBABILITY_UMAP, row.get("probability", ""))
-                    ),
+                    COL_PROBABILITY_BOT_UMAP: str(row.get(COL_PROBABILITY_BOT_UMAP, "")),
                     COL_PROBABILITY_LGBM: str(row.get(COL_PROBABILITY_LGBM, "")),
                     "ip": str(row.get("ip", "")),
                     "user_agent": str(row.get("user_agent", "")),

@@ -87,10 +87,14 @@ def run_site_pipeline(site_id: str, force: bool = False) -> str:
     try:
         env = os.environ.copy()
         env.update(build_site_env(site))
+        if force:
+            # Пересчёт всех сессий (не только delta по логу).
+            env["FORCE_FULL_REBUILD"] = "1"
         append_site_log(
             site.site_dir,
             f"start: mobile_model={site.mobile_models.source} "
-            f"desktop_model={site.desktop_models.source}",
+            f"desktop_model={site.desktop_models.source}"
+            f"{' force_full_rebuild=1' if force else ''}",
         )
 
         python_bin = resolve_python()
@@ -135,7 +139,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Запустить даже если лог не менялся",
+        help="Запустить даже если лог не менялся; полный пересчёт всех сессий",
     )
     args = parser.parse_args()
 

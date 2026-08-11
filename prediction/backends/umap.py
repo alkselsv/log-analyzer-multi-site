@@ -1,4 +1,4 @@
-"""UMAP + order-centroid distance → probability_umap."""
+"""UMAP + bot-centroid distance → probability_bot_umap."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 
 from prediction.order_probability import (
-    PROBABILITY_FLOOR,
     distances_to_probability,
+    resolve_distance_p95,
     resolve_probability_mode,
 )
 from prediction.changed import load_changed_sessions
@@ -34,7 +34,7 @@ warnings.filterwarnings(
 )
 
 
-def resolve_umap_paths(device: str) -> Tuple[Path, Path, Path]:
+def resolve_bot_umap_paths(device: str) -> Tuple[Path, Path, Path]:
     device = device.lower()
     if device == "mobile":
         features = Path(
@@ -48,14 +48,14 @@ def resolve_umap_paths(device: str) -> Tuple[Path, Path, Path]:
         )
         umap = Path(
             os.environ.get(
-                "MOBILE_UMAP_MODEL_PATH",
-                os.environ.get("UMAP_MODEL_PATH", "order_umap_model.joblib"),
+                "MOBILE_BOT_UMAP_MODEL_PATH",
+                os.environ.get("BOT_UMAP_MODEL_PATH", "bot_umap_model.joblib"),
             )
         )
         centroid = Path(
             os.environ.get(
-                "MOBILE_CENTROID_PATH",
-                os.environ.get("CENTROID_PATH", "order_cluster_centroid.json"),
+                "MOBILE_BOT_CENTROID_PATH",
+                os.environ.get("BOT_CENTROID_PATH", "bot_cluster_centroid.json"),
             )
         )
     elif device == "desktop":
@@ -70,14 +70,14 @@ def resolve_umap_paths(device: str) -> Tuple[Path, Path, Path]:
         )
         umap = Path(
             os.environ.get(
-                "DESKTOP_UMAP_MODEL_PATH",
-                os.environ.get("UMAP_MODEL_PATH", "order_umap_model.joblib"),
+                "DESKTOP_BOT_UMAP_MODEL_PATH",
+                os.environ.get("BOT_UMAP_MODEL_PATH", "bot_umap_model.joblib"),
             )
         )
         centroid = Path(
             os.environ.get(
-                "DESKTOP_CENTROID_PATH",
-                os.environ.get("CENTROID_PATH", "order_cluster_centroid.json"),
+                "DESKTOP_BOT_CENTROID_PATH",
+                os.environ.get("BOT_CENTROID_PATH", "bot_cluster_centroid.json"),
             )
         )
     else:
@@ -94,10 +94,14 @@ def load_centroid_config(centroid_path: Path) -> dict:
     with centroid_path.open("r", encoding="utf-8") as handle:
         config = json.load(handle)
 
-    required = ("centroid_x", "centroid_y", "order_distance_p95")
-    missing = [key for key in required if key not in config]
+    missing = [key for key in ("centroid_x", "centroid_y") if key not in config]
     if missing:
         print(f"[FAIL] В '{centroid_path}' отсутствуют поля: {missing}")
+        sys.exit(1)
+    try:
+        resolve_distance_p95(config)
+    except KeyError as exc:
+        print(f"[FAIL] В '{centroid_path}': {exc}")
         sys.exit(1)
     return config
 
@@ -127,13 +131,13 @@ def select_feature_matrix(df: pd.DataFrame, centroid_config: dict):
     return session_ids, X
 
 
-def score_umap(
+def score_bot_umap(
     device: str,
     *,
     changed_sessions_file: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Return session_id → probability_umap string for sessions that need scoring."""
-    features_path, umap_path, centroid_path = resolve_umap_paths(device)
+    """Return session_id → probability_bot_umap string for sessions that need scoring."""
+    features_path, umap_path, centroid_path = resolve_bot_umap_paths(device)
 
     if not features_path.is_file():
         print(f"[FAIL] Не найден файл с признаками '{features_path}'.")
@@ -149,7 +153,7 @@ def score_umap(
     )
     probability_mode = resolve_probability_mode(centroid_config)
 
-    print("\n=== UMAP: загрузка признаков ===")
+    print("\n=== UMAP (bot): загрузка признаков ===")
     df = pd.read_csv(features_path)
     changed_payload = load_changed_sessions(changed_sessions_file)
 
@@ -158,7 +162,7 @@ def score_umap(
     )
 
     if changed_payload is not None and changed_payload.get("session_ids") == [] and not full_rebuild:
-        print("UMAP: нет changed session_id, пропускаем пересчёт.")
+        print("UMAP (bot): нет changed session_id, пропускаем пересчёт.")
         return {}
 
     if not full_rebuild:
@@ -169,14 +173,14 @@ def score_umap(
         else:
             df.index = df.index.astype(str)
             df = df[df.index.isin(changed_set)].copy()
-        print(f"UMAP: инкрементальный прогноз для {len(df)} session_id.")
+        print(f"UMAP (bot): инкрементальный прогноз для {len(df)} session_id.")
         if df.empty:
             return {}
     else:
-        print("UMAP: полный пересчёт прогнозов.")
+        print("UMAP (bot): полный пересчёт прогнозов.")
 
     session_ids, X = select_feature_matrix(df, centroid_config)
-    print(f"UMAP: сессий={len(X)}, признаков={X.shape[1]}")
+    print(f"UMAP (bot): сессий={len(X)}, признаков={X.shape[1]}")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -194,9 +198,9 @@ def score_umap(
     distances = np.linalg.norm(X_umap - centroid, axis=1)
     probabilities = distances_to_probability(distances, centroid_config, probability_mode)
 
-    print(f"UMAP: режим={probability_mode}")
+    print(f"UMAP (bot): режим={probability_mode}")
     print(
-        "UMAP вероятности: "
+        "UMAP (bot) вероятности: "
         f"min={probabilities.min():.6f}, median={np.median(probabilities):.6f}, "
         f"max={probabilities.max():.6f}"
     )

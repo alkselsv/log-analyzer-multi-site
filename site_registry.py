@@ -52,13 +52,13 @@ def is_site_allowed(site_id: str) -> bool:
 
 
 MOBILE_MODEL_FILES = (
-    "order_umap_model.joblib",
-    "order_cluster_centroid.json",
+    "bot_umap_model.joblib",
+    "bot_cluster_centroid.json",
     "minmax_scaler.pkl",
 )
 DESKTOP_MODEL_FILES = (
-    "order_umap_model.joblib",
-    "order_cluster_centroid.json",
+    "bot_umap_model.joblib",
+    "bot_cluster_centroid.json",
     "minmax_scaler.pkl",
 )
 
@@ -66,8 +66,8 @@ DESKTOP_MODEL_FILES = (
 @dataclass
 class DeviceModelPaths:
     model_dir: Path
-    umap: Path
-    centroid: Path
+    bot_umap: Path
+    bot_centroid: Path
     scaler: Path
     source: str  # "custom" or "base"
     buyer_lgbm: Optional[BuyerLgbmPaths] = None
@@ -130,8 +130,8 @@ def resolve_device_models(
     )
     return DeviceModelPaths(
         model_dir=model_dir,
-        umap=model_dir / "order_umap_model.joblib",
-        centroid=model_dir / "order_cluster_centroid.json",
+        bot_umap=model_dir / "bot_umap_model.joblib",
+        bot_centroid=model_dir / "bot_cluster_centroid.json",
         scaler=model_dir / scaler_name,
         source=source,
         buyer_lgbm=buyer_lgbm,

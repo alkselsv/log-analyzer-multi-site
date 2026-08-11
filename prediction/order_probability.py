@@ -1,9 +1,15 @@
-"""Преобразование расстояния до центроида заказов в probability."""
+"""Преобразование расстояния до центроида ботов в probability."""
 
 import numpy as np
 
 PROBABILITY_FLOOR = 0.01
 PROBABILITY_TAIL_FLOOR = 0.001
+
+
+def resolve_distance_p95(centroid_config):
+    if "bot_distance_p95" not in centroid_config or centroid_config["bot_distance_p95"] is None:
+        raise KeyError("В centroid-конфиге нет поля bot_distance_p95")
+    return float(centroid_config["bot_distance_p95"])
 
 
 def compute_decay_sigma(
@@ -62,7 +68,7 @@ def resolve_probability_mode(centroid_config):
 
 
 def distances_to_probability(distances, centroid_config, mode=None):
-    p95 = float(centroid_config["order_distance_p95"])
+    p95 = resolve_distance_p95(centroid_config)
     if mode is None:
         mode = resolve_probability_mode(centroid_config)
 

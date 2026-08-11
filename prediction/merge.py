@@ -1,4 +1,4 @@
-"""Load/write predict_results.csv with dual score columns."""
+"""Load/write predict_results.csv with bot UMAP + LGBM score columns."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 
 from prediction.schema import (
+    COL_PROBABILITY_BOT_UMAP,
     COL_PROBABILITY_LGBM,
-    COL_PROBABILITY_UMAP,
     COL_SESSION_ID,
     PREDICT_COLUMNS,
 )
@@ -29,16 +29,12 @@ def normalize_predict_frame(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("В predict frame нет session_id")
     out[COL_SESSION_ID] = out[COL_SESSION_ID].astype(str)
 
-    # Migrate legacy column name.
-    if COL_PROBABILITY_UMAP not in out.columns and "probability" in out.columns:
-        out[COL_PROBABILITY_UMAP] = out["probability"]
-
-    if COL_PROBABILITY_UMAP not in out.columns:
-        out[COL_PROBABILITY_UMAP] = ""
+    if COL_PROBABILITY_BOT_UMAP not in out.columns:
+        out[COL_PROBABILITY_BOT_UMAP] = ""
     if COL_PROBABILITY_LGBM not in out.columns:
         out[COL_PROBABILITY_LGBM] = ""
 
-    out[COL_PROBABILITY_UMAP] = _clean_score_series(out[COL_PROBABILITY_UMAP])
+    out[COL_PROBABILITY_BOT_UMAP] = _clean_score_series(out[COL_PROBABILITY_BOT_UMAP])
     out[COL_PROBABILITY_LGBM] = _clean_score_series(out[COL_PROBABILITY_LGBM])
     return out
 

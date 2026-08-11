@@ -1,6 +1,6 @@
 # log-analyzer-multi-site
 
-Мультисайтовый пайплайн **prediction** вероятности заказа по mobile- и desktop-сессиям.
+Мультисайтовый пайплайн **prediction** вероятности бота / покупателя по mobile- и desktop-сессиям.
 
 Обучение моделей и выпуск артефактов — в соседнем проекте
 [`log-analyzer-model-training`](../log-analyzer-model-training).
@@ -14,7 +14,7 @@
 3. **изолирует** checkpoint'ы и промежуточные файлы в `sites/{site_id}/`;
 4. **пишет** итоговый журнал в `/var/www/mlog/{site_id}.out.log`.
 
-Алгоритм: UMAP + расстояние до центра кластера заказов → `probability_umap`;
+Алгоритм: UMAP + расстояние до центра кластера ботов → `probability_bot_umap`;
 опционально LightGBM (Transformer-эмбеддинг + nobot-признаки) → `probability_lgbm`
 (см. раздел «Алгоритм»).
 
@@ -32,7 +32,7 @@ log-analyzer-multi-site/
 ├── prediction/                  # весь scoring
 │   ├── schema.py
 │   ├── runner.py
-│   ├── order_probability.py     # decay/linear UMAP probability
+│   ├── order_probability.py     # decay/linear bot UMAP probability
 │   ├── backends/                # umap.py, lgbm.py
 │   └── lgbm/                    # LightGBM artifacts / encode / tokenize
 ├── pipeline/                    # device pipeline + postprocess
@@ -98,17 +98,17 @@ uv run python site_watcher.py
 
 ### Dual output
 
-В `predict_results.csv` и `{site_id}.out.log` две колонки скора (**breaking**: раньше UMAP писался в `probability`):
+В `predict_results.csv` и `{site_id}.out.log` колонки скора:
 
 | Колонка | Источник |
 |---------|----------|
-| `probability_umap` | UMAP + расстояние до центроида заказов (обязательный) |
+| `probability_bot_umap` | UMAP + расстояние до центроида ботов (обязательный) |
 | `probability_lgbm` | LightGBM `predict_proba` (опциональный; пусто, если нет артефактов) |
 
 Схема combined `out.log`:
 
 ```text
-date,device_type,session_id,probability_umap,probability_lgbm,ip,user_agent
+date,device_type,session_id,probability_bot_umap,probability_lgbm,ip,user_agent
 ```
 
 ### Выбор модели при запуске
@@ -117,8 +117,8 @@ date,device_type,session_id,probability_umap,probability_lgbm,ip,user_agent
 
 | Device | Файлы |
 |--------|-------|
-| mobile | `order_umap_model.joblib`, `order_cluster_centroid.json`, `minmax_scaler.pkl` |
-| desktop | `order_umap_model.joblib`, `order_cluster_centroid.json`, `minmax_scaler.pkl` |
+| mobile | `bot_umap_model.joblib`, `bot_cluster_centroid.json`, `minmax_scaler.pkl` |
+| desktop | `bot_umap_model.joblib`, `bot_cluster_centroid.json`, `minmax_scaler.pkl` |
 
 **Порядок выбора:**
 
@@ -137,7 +137,7 @@ date,device_type,session_id,probability_umap,probability_lgbm,ip,user_agent
 | `buyer_lgbm.pkl` | LightGBM + MinMaxScaler nobot-признаков + `feature_columns` |
 | `transformer_autoencoder.pt` | Transformer для эмбеддинга URL-токенов сессии |
 
-Если LGBM-набора нет, пайплайн всё равно пишет `probability_umap`; `probability_lgbm` остаётся пустым.
+Если LGBM-набора нет, пайплайн всё равно пишет `probability_bot_umap`; `probability_lgbm` остаётся пустым.
 
 ### Обучение и публикация артефактов
 
@@ -202,8 +202,8 @@ systemctl daemon-reload && systemctl enable --now site-watcher.service
 
 1. Node извлекает TMV/MMV + CLK + SCL по сессиям.
 2. Preprocessor строит mean-only признаки и применяет MinMaxScaler (только transform).
-3. `prediction.runner`: UMAP → `probability_umap`; LightGBM (если есть артефакты) → `probability_lgbm`; один CSV.
-4. Postprocessor дописывает delta в out.log и history (если изменился любой из двух скоров).
+3. `prediction.runner`: bot UMAP → `probability_bot_umap`; LightGBM (если есть артефакты) → `probability_lgbm`; один CSV.
+4. Postprocessor дописывает delta в out.log и history (если изменился любой из скоров).
 
 Режим UMAP probability: `PROBABILITY_MODE=decay` (по умолчанию) или `linear`.
 

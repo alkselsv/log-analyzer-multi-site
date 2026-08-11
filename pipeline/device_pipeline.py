@@ -154,7 +154,7 @@ def run_device_pipeline(device: str) -> None:
     os.chdir(work_dir)
 
     print(
-        f"Запуск {device}-пайплайна: признаки → probability_umap + probability_lgbm..."
+        f"Запуск {device}-пайплайна: признаки → probability_bot_umap + probability_lgbm..."
     )
     pipeline_start = time.perf_counter()
     pipeline_env = build_pipeline_env(work_dir)

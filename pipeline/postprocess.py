@@ -7,13 +7,12 @@ import glob
 import json
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Dict
 
 from out_log_daily import append_out_log, write_out_delta
 from prediction.schema import (
+    COL_PROBABILITY_BOT_UMAP,
     COL_PROBABILITY_LGBM,
-    COL_PROBABILITY_UMAP,
     COL_SESSION_ID,
     DEVICE_OUT_FIELDNAMES,
 )
@@ -59,18 +58,16 @@ def update_if_empty(mapping, key, value):
         mapping[key] = value
 
 
-def scores_changed(old_row, new_umap, new_lgbm) -> bool:
+def scores_changed(old_row, new_bot_umap, new_lgbm) -> bool:
     if old_row is None:
         return True
     return (
-        str(old_row.get(COL_PROBABILITY_UMAP, old_row.get("probability", ""))) != str(new_umap)
+        str(old_row.get(COL_PROBABILITY_BOT_UMAP, "")) != str(new_bot_umap)
         or str(old_row.get(COL_PROBABILITY_LGBM, "")) != str(new_lgbm)
     )
 
 
 def _score_from_row(row: dict, key: str) -> str:
-    if key == COL_PROBABILITY_UMAP:
-        return row.get(COL_PROBABILITY_UMAP, row.get("probability", "")) or ""
     return row.get(key, "") or ""
 
 
@@ -163,13 +160,13 @@ def run_postprocess(device: str) -> None:
         "predict_results_old.csv",
     )
 
-    probs_umap: Dict[str, str] = {}
+    probs_bot_umap: Dict[str, str] = {}
     probs_lgbm: Dict[str, str] = {}
     with open(predict_results_path, "r", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             sess = str(row[COL_SESSION_ID])
-            probs_umap[sess] = _score_from_row(row, COL_PROBABILITY_UMAP)
+            probs_bot_umap[sess] = _score_from_row(row, COL_PROBABILITY_BOT_UMAP)
             probs_lgbm[sess] = _score_from_row(row, COL_PROBABILITY_LGBM)
 
     old_rows: Dict[str, dict] = {}
@@ -178,11 +175,11 @@ def run_postprocess(device: str) -> None:
             reader = csv.DictReader(handle)
             for row in reader:
                 old_rows[str(row[COL_SESSION_ID])] = {
-                    COL_PROBABILITY_UMAP: _score_from_row(row, COL_PROBABILITY_UMAP),
+                    COL_PROBABILITY_BOT_UMAP: _score_from_row(row, COL_PROBABILITY_BOT_UMAP),
                     COL_PROBABILITY_LGBM: _score_from_row(row, COL_PROBABILITY_LGBM),
                 }
 
-    session_ids = set(probs_umap)
+    session_ids = set(probs_bot_umap)
     if device == "mobile":
         meta, user_agents = collect_meta_mobile(session_ids)
     else:
@@ -194,15 +191,15 @@ def run_postprocess(device: str) -> None:
     run_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     rows_to_write = []
-    for sess, umap_prob in probs_umap.items():
+    for sess, bot_umap in probs_bot_umap.items():
         lgbm = probs_lgbm.get(sess, "")
-        if scores_changed(old_rows.get(sess), umap_prob, lgbm):
+        if scores_changed(old_rows.get(sess), bot_umap, lgbm):
             ip, ua = resolve_session_meta(sess, meta, user_agents, history_meta)
             rows_to_write.append(
                 {
                     "date": run_date,
                     COL_SESSION_ID: sess,
-                    COL_PROBABILITY_UMAP: umap_prob,
+                    COL_PROBABILITY_BOT_UMAP: bot_umap,
                     COL_PROBABILITY_LGBM: lgbm,
                     "ip": ip,
                     "user_agent": ua,
@@ -237,13 +234,13 @@ def run_postprocess(device: str) -> None:
                     name: (row.get(name) or "") for name in DEVICE_OUT_FIELDNAMES
                 }
 
-    for sess, umap_prob in probs_umap.items():
+    for sess, bot_umap in probs_bot_umap.items():
         sid = str(sess)
         ip, ua = resolve_session_meta(sid, meta, user_agents, history_meta)
         history_by_session[sid] = {
             "date": run_date,
             COL_SESSION_ID: sid,
-            COL_PROBABILITY_UMAP: str(umap_prob),
+            COL_PROBABILITY_BOT_UMAP: str(bot_umap),
             COL_PROBABILITY_LGBM: str(probs_lgbm.get(sess, "")),
             "ip": ip,
             "user_agent": ua,
